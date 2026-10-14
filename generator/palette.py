@@ -8,7 +8,7 @@ from one place.  Gradient stops are (offset, colour, opacity).
 THEME_NAME = 'Liger'
 THEME_ID = 'Liger'
 AUTHOR = 'Liger contributors'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 # --------------------------------------------------------------------------
 # base colours

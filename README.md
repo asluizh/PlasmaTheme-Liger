@@ -34,6 +34,14 @@ Requires Python 3 with Pillow and NumPy to build; Kvantum for the application st
 an isolated headless Plasma session and writes screenshots to `previews/`.
 See **PROGRESS.md** for architecture, status and next steps.
 
+## GTK applications
+
+For GTK apps (GNOME, Firefox, LibreOffice with the GTK backend…), use the matching
+[OS X Mavericks GTK theme](https://github.com/B00merang-Project/OS-X-Mavericks) by the
+B00merang Project, which Liger used as its reference. Install it into `~/.themes` and
+select it in System Settings → Colours & Themes → Application Style → Configure GNOME/GTK
+Application Style.
+
 ## Notes
 
 * After `./install.sh`, running sessions are refreshed automatically (KWin reconfigure,
