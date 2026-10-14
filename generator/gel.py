@@ -24,6 +24,11 @@ def gel(x0, y0, x1, y1, r, stops, rim_top, rim_bottom, axis='v', gloss=0.55, dro
     L.append(RR(x0, y0, x1, y1, r, _lin(axis, a0, a1, [(0, rim_top, 1), (1, rim_bottom, 1)]), rim_opacity))
     ri = r - 1 if not isinstance(r, tuple) else tuple(max(0, v - 1) for v in r)
     L.append(RR(x0 + 1, y0 + 1, x1 - 1, y1 - 1, ri, _lin(axis, a0 + 1, a1 - 1, stops)))
+    if P.GLASS_EDGE:
+        # glass: thin light edge just inside the rim, brightest on the lit side
+        c, a = P.GLASS_EDGE
+        L.append(RING(x0 + 1, y0 + 1, x1 - 1, y1 - 1, ri, 1,
+                      _lin(axis, a0 + 1, a1 - 1, [(0, c, a * 1.8), (0.5, c, a * 0.4), (1, c, a * 0.9)])))
     if gloss:
         if axis == 'v':
             mid = y0 + (y1 - y0) * 0.5

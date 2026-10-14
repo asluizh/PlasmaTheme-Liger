@@ -1,7 +1,7 @@
 """
-Builds the Liger Plasma Style (desktoptheme).
+Builds the Liger / DarkLiger Plasma Style (desktoptheme).
 
-Output: <out>/plasma/desktoptheme/Liger/
+Output: <out>/plasma/desktoptheme/<THEME_ID>/
 Each widget function below owns one SVG file; tweak values here or in palette.py.
 """
 import json
@@ -9,6 +9,7 @@ import os
 
 import palette as P
 import gel as G
+from palette import D
 from svgkit import SVG, RR, RING, Layer, Linear, Radial, rrect_poly, ellipse_poly, vgrad, hgrad, shadow_image, add_shadow, Raster
 
 CS = {'Text': P.TEXT, 'Background': P.WINDOW_BG, 'Highlight': P.SELECTION}
@@ -18,6 +19,14 @@ FRAME_NAMES = ['topleft', 'top', 'topright', 'left', 'center', 'right', 'bottoml
 
 def nxt(svg):
     return svg.maxy + 12
+
+
+def glass_edge(x0, y0, x1, y1, r, k=1.0):
+    """DarkLiger: faint light ring inside dark glass so it separates from dark backdrops."""
+    if not P.GLASS_EDGE:
+        return []
+    c, a = P.GLASS_EDGE
+    return [RING(x0, y0, x1, y1, r, 1, vgrad(y0, y1, [(0, c, a * 1.4 * k), (0.4, c, a * 0.5 * k), (1, c, a * 0.6 * k)]))]
 
 
 # ==========================================================================
@@ -32,9 +41,9 @@ def dialog_svg(alpha=0.97, shadow=True, radius=6):
         RR(0, 0, W, H, radius, P.POPUP_BORDER[0], P.POPUP_BORDER[1]),
         Layer(rrect_poly(1, 1, W - 1, H - 1, radius - 1), vgrad(1, H - 1, P.POPUP), alpha),
         # crisp 1px inner top highlight
-        Layer(rrect_poly(1, 1, W - 1, 3, (radius - 1, radius - 1, 0, 0)), '#ffffff', 0.9 * alpha,
+        Layer(rrect_poly(1, 1, W - 1, 3, (radius - 1, radius - 1, 0, 0)), '#ffffff', D(0.9, 0.16) * alpha,
               hole=rrect_poly(1, 2, W - 1, 4, 0)),
-    ]
+    ] + glass_edge(1, 1, W - 1, H - 1, radius - 1)
     svg.frame('', 0, 0, W, H, m, body,
               hints={'top-margin': 6, 'bottom-margin': 6, 'left-margin': 6, 'right-margin': 6})
     # blur / input mask
@@ -52,7 +61,7 @@ def dialog_svg(alpha=0.97, shadow=True, radius=6):
 
 def menubar_layers(W, H, alpha, line=True):
     L = [Layer(rrect_poly(0, 0, W, H, 0), vgrad(0, H, P.MENUBAR), alpha)]
-    L.append(Layer(rrect_poly(0, 0, W, 1, 0), '#ffffff', 0.9 * alpha))  # top specular line
+    L.append(Layer(rrect_poly(0, 0, W, 1, 0), '#ffffff', D(0.9, 0.16) * alpha))  # top specular line
     if line:
         L.append(Layer(rrect_poly(0, H - 1, W, H, 0), P.MENUBAR_LINE, min(1, alpha + 0.1)))
     return L
@@ -68,11 +77,27 @@ def dock_layers(W, H, r, alpha_mul, style):
         RING(0, 0, W, H, r, 1, outline[0], outline[1]),
         RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, stops)),
         RING(1, 1, W - 1, H - 1, r - 1, 1, border[0], border[1] * min(1, alpha_mul)),
-        # glassy upper sheen
-        Layer(rrect_poly(2, 2, W - 2, H * 0.45, (r - 2, r - 2, 2, 2)),
-              vgrad(2, H * 0.45, [(0, '#ffffff', 0.35 * min(1, alpha_mul)), (1, '#ffffff', 0.0)])),
+        # glassy upper sheen (DarkLiger: a faint band that stops hard at the reflection line)
+        Layer(rrect_poly(2, 2, W - 2, H * D(0.45, 0.5), (r - 2, r - 2, D(2, 0), D(2, 0))),
+              vgrad(2, H * D(0.45, 0.5), [(0, '#ffffff', D(0.35, 0.14) * min(1, alpha_mul)),
+                                          (1, '#ffffff', D(0.0, 0.03))])),
     ]
     return L
+
+
+def transposed(layers):
+    """Mirror layers across the diagonal (x<->y): a horizontal frame becomes a vertical one
+    whose gradients run across its thickness, lit side on the left like the scroller thumb."""
+    def pts(poly):
+        return [(y, x) for x, y in poly] if poly else poly
+
+    def paint(pt):
+        if isinstance(pt, Linear):
+            return Linear(pt.y1, pt.x1, pt.y2, pt.x2, pt.stops)
+        if isinstance(pt, Radial):
+            return Radial(pt.cy, pt.cx, pt.r, pt.stops, pt.fy, pt.fx, pt.sy, pt.sx)
+        return pt
+    return [Layer(pts(L.shape), paint(L.paint), L.opacity, pts(L.hole), L.cls) for L in layers]
 
 
 def panel_svg(alpha=0.92, dock_alpha=1.0, shadow=True, opaque=False):
@@ -83,9 +108,12 @@ def panel_svg(alpha=0.92, dock_alpha=1.0, shadow=True, opaque=False):
     r = 10
     m = (10, 10, 10, 10)
     hints = {'top-margin': 4, 'bottom-margin': 4, 'left-margin': 6, 'right-margin': 6}
+    vhints = {'top-margin': 6, 'bottom-margin': 6, 'left-margin': 4, 'right-margin': 4}
     dl = dock_layers(W, H, r, 1.6 if opaque else dock_alpha, style)
     for pre in ['', 'south-', 'east-', 'west-']:
-        svg.frame(pre, 0, nxt(svg), W, H, m, dl, hints=hints)
+        # vertical docks: the gradient runs across the dock's thickness, not along it
+        vertical = pre in ('east-', 'west-')
+        svg.frame(pre, 0, nxt(svg), W, H, m, transposed(dl) if vertical else dl, hints=vhints if vertical else hints)
         svg.frame('mask-' + pre, 0, nxt(svg), W, H, m, [RR(0, 0, W, H, r, '#000000')])
     # ---- menu bar (north) ----
     MW, MH = 64, 26
@@ -119,8 +147,8 @@ def tooltip_svg(alpha=1.0, shadow=True):
     m = (5, 5, 5, 5)
     L = [
         RR(0, 0, W, H, r, P.TOOLTIP_BORDER, 0.9),
-        Layer(rrect_poly(1, 1, W - 1, H - 1, r - 1), vgrad(1, H - 1, [(0, '#ffffd8', 1), (1, P.TOOLTIP_BG, 1)]), alpha),
-    ]
+        Layer(rrect_poly(1, 1, W - 1, H - 1, r - 1), vgrad(1, H - 1, [(0, D('#ffffd8', '#36383d'), 1), (1, P.TOOLTIP_BG, 1)]), alpha),
+    ] + glass_edge(1, 1, W - 1, H - 1, r - 1)
     svg.frame('', 0, 0, W, H, m, L, hints={'top-margin': 5, 'bottom-margin': 5, 'left-margin': 7, 'right-margin': 7})
     svg.frame('mask-', 0, nxt(svg), W, H, m, [RR(0, 0, W, H, r, '#000000')])
     if shadow:
@@ -138,9 +166,9 @@ def widget_bg_svg():
     r = 8
     m = (10, 10, 10, 10)
     L = [
-        RR(0, 0, W, H, r, '#000000', 0.25),
-        Layer(rrect_poly(1, 1, W - 1, H - 1, r - 1), vgrad(1, H - 1, [(0, '#fdfdfd', 1), (1, '#eeeeee', 1)]), 0.92),
-        RING(1, 1, W - 1, H - 1, r - 1, 1, '#ffffff', 0.7),
+        RR(0, 0, W, H, r, '#000000', D(0.25, 0.7)),
+        Layer(rrect_poly(1, 1, W - 1, H - 1, r - 1), vgrad(1, H - 1, [(0, D('#fdfdfd', '#2d2f33'), 1), (1, D('#eeeeee', '#222427'), 1)]), D(0.92, 0.88)),
+        RING(1, 1, W - 1, H - 1, r - 1, 1, '#ffffff', D(0.7, 0.09)),
     ]
     svg.frame('', 0, 0, W, H, m, L, hints={'top-margin': 8, 'bottom-margin': 8, 'left-margin': 8, 'right-margin': 8})
     svg.frame('mask-', 0, nxt(svg), W, H, m, [RR(0, 0, W, H, r, '#000000')])
@@ -177,14 +205,16 @@ def button_svg():
     # flat tool buttons (panels, plasmoid headers)
     tb = (0.5, 0.5, W - 0.5, H - 0.5)
     svg.frame('toolbutton-hover-', 0, nxt(svg), W, H, m, [
-        RR(*tb, r, '#000000', 0.18),
+        RR(*tb, r, '#000000', D(0.18, 0.55)),
         Layer(rrect_poly(tb[0] + 1, tb[1] + 1, tb[2] - 1, tb[3] - 1, r - 1),
-              vgrad(1, H - 1, [(0, '#ffffff', 0.75), (0.5, '#f4f4f4', 0.55), (0.5, '#e8e8e8', 0.5), (1, '#ffffff', 0.6)])),
+              vgrad(1, H - 1, D([(0, '#ffffff', 0.75), (0.5, '#f4f4f4', 0.55), (0.5, '#e8e8e8', 0.5), (1, '#ffffff', 0.6)],
+                                [(0, '#ffffff', 0.20), (0.5, '#ffffff', 0.11), (0.5, '#ffffff', 0.05), (1, '#ffffff', 0.08)]))),
     ], hints=hints)
     svg.frame('toolbutton-pressed-', 0, nxt(svg), W, H, m, [
-        RR(*tb, r, '#000000', 0.32),
+        RR(*tb, r, '#000000', D(0.32, 0.7)),
         Layer(rrect_poly(tb[0] + 1, tb[1] + 1, tb[2] - 1, tb[3] - 1, r - 1),
-              vgrad(1, H - 1, [(0, '#9a9a9a', 0.55), (0.3, '#b9b9b9', 0.45), (1, '#d4d4d4', 0.4)])),
+              vgrad(1, H - 1, D([(0, '#9a9a9a', 0.55), (0.3, '#b9b9b9', 0.45), (1, '#d4d4d4', 0.4)],
+                                [(0, '#000000', 0.45), (0.3, '#000000', 0.30), (1, '#ffffff', 0.06)]))),
     ], hints=hints)
     svg.frame('toolbutton-focus-', 0, nxt(svg), GW, GH, (g + 4, g + 4, g + 4, g + 4),
               G.glow_ring(g, g, GW - g, GH - g, r, P.FOCUS_RING, width=3),
@@ -215,7 +245,7 @@ def tasks_svg():
     run = _indicator(W, H, '#ffffff', '#6fb4ff')
     act = _indicator(W, H, '#ffffff', '#3d8cff')
     hover_glow = [RR(4, 1, W - 4, H - 1, 8, Radial(W / 2, H * 0.55, W * 0.55,
-                                                     [(0, '#ffffff', 0.55), (1, '#ffffff', 0.08)], sy=0.8))]
+                                                     [(0, '#ffffff', D(0.55, 0.20)), (1, '#ffffff', D(0.08, 0.03))], sy=0.8))]
     att = _indicator(W, H, '#fff6d0', '#ff9a1f')
     progress = [RR(3, H - 9, W - 3, H - 2, 3.5, Linear(0, H - 9, 0, H - 2, P.BLUE_GEL), 0.95)]
     for pre in ['', 'south-', 'north-']:
@@ -234,7 +264,7 @@ def tasks_svg():
                RR(x, 18, x + 3, HH - 18, 1.5, '#ffffff', 1.0)]
         for st in ('normal-', 'minimized-', 'focus-'):
             svg.frame(pre + st, 0, nxt(svg), WW, HH, mm, ind, hints=hints)
-        svg.frame(pre + 'hover-', 0, nxt(svg), WW, HH, mm, [RR(1, 4, WW - 1, HH - 4, 8, '#ffffff', 0.3)], hints=hints)
+        svg.frame(pre + 'hover-', 0, nxt(svg), WW, HH, mm, [RR(1, 4, WW - 1, HH - 4, 8, '#ffffff', D(0.3, 0.12))], hints=hints)
         svg.frame(pre + 'attention-', 0, nxt(svg), WW, HH, mm, [RR(x, 18, x + 3, HH - 18, 1.5, '#ff9a1f', 1.0)], hints=hints)
         svg.frame(pre + 'progress-', 0, nxt(svg), WW, HH, mm, [RR(2, HH - 9, WW - 2, HH - 2, 3.5, Linear(0, HH - 9, 0, HH - 2, P.BLUE_GEL))], hints=hints)
     return svg
@@ -277,8 +307,8 @@ def listitem_svg():
     svg.frame('pressed-', 0, nxt(svg), W, H, m, selection_layers(W, H, 0), hints=hints)
     svg.frame('hover-', 0, nxt(svg), W, H, m, [RR(0, 0, W, H, 0, P.SELECTION, 0.16)], hints=hints)
     svg.frame('section-', 0, nxt(svg), W, H, m, [
-        RR(0, 0, W, H, 0, vgrad(0, H, [(0, '#e9edf2', 1), (1, '#d7dde6', 1)])),
-        Layer(rrect_poly(0, H - 1, W, H, 0), '#b3bac5'),
+        RR(0, 0, W, H, 0, vgrad(0, H, [(0, D('#e9edf2', '#303338'), 1), (1, D('#d7dde6', '#26282c'), 1)])),
+        Layer(rrect_poly(0, H - 1, W, H, 0), D('#b3bac5', '#0b0c0d')),
     ], hints=hints)
     svg.hint('separator', 0, nxt(svg), 20, 1)
     return svg
@@ -293,10 +323,10 @@ def lineedit_svg():
     W, H, r = 40, 26, 3
     m = (5, 5, 5, 5)
     base = [
-        RR(0, 0, W, H, r, vgrad(0, H, [(0, '#8c8c8c', 1), (0.2, '#b0b0b0', 1), (1, '#c9c9c9', 1)])),
-        RR(1, 1, W - 1, H - 1, r - 1, '#ffffff'),
+        RR(0, 0, W, H, r, vgrad(0, H, [(0, D('#8c8c8c', '#050506'), 1), (0.2, D('#b0b0b0', '#0c0d0e'), 1), (1, D('#c9c9c9', '#3b3d42'), 1)])),
+        RR(1, 1, W - 1, H - 1, r - 1, D('#ffffff', '#17181b')),
         # inner top shadow
-        Layer(rrect_poly(1, 1, W - 1, 4, (r - 1, r - 1, 0, 0)), vgrad(1, 4, [(0, '#000000', 0.16), (1, '#000000', 0)])),
+        Layer(rrect_poly(1, 1, W - 1, 4, (r - 1, r - 1, 0, 0)), vgrad(1, 4, [(0, '#000000', D(0.16, 0.5)), (1, '#000000', 0)])),
     ]
     svg.frame('base-', 0, 0, W, H, m, base, hints={'top-margin': 4, 'bottom-margin': 4, 'left-margin': 6, 'right-margin': 6})
     g = 4
@@ -319,13 +349,15 @@ def scrollbar_svg():
     L = 40
     r = S / 2 - 0.5
     m = (6, 7, 6, 7)
+    rim = [(0, D('#b9b9b9', '#060607'), 1), (1, D('#d6d6d6', '#2e3034'), 1)]
+    well = [(0, D('#d9d9d9', '#121315'), 1), (0.35, D('#f1f1f1', '#1a1b1e'), 1), (1, D('#fbfbfb', '#212326'), 1)]
     track_v = [
-        RR(0, 0, S, L, r, hgrad(0, S, [(0, '#b9b9b9', 1), (1, '#d6d6d6', 1)])),
-        RR(1, 1, S - 1, L - 1, r - 1, hgrad(1, S - 1, [(0, '#d9d9d9', 1), (0.35, '#f1f1f1', 1), (1, '#fbfbfb', 1)])),
+        RR(0, 0, S, L, r, hgrad(0, S, rim)),
+        RR(1, 1, S - 1, L - 1, r - 1, hgrad(1, S - 1, well)),
     ]
     track_h = [
-        RR(0, 0, L, S, r, vgrad(0, S, [(0, '#b9b9b9', 1), (1, '#d6d6d6', 1)])),
-        RR(1, 1, L - 1, S - 1, r - 1, vgrad(1, S - 1, [(0, '#d9d9d9', 1), (0.35, '#f1f1f1', 1), (1, '#fbfbfb', 1)])),
+        RR(0, 0, L, S, r, vgrad(0, S, rim)),
+        RR(1, 1, L - 1, S - 1, r - 1, vgrad(1, S - 1, well)),
     ]
     svg.frame('background-vertical-', 0, 0, S, L, m, track_v)
     svg.frame('background-horizontal-', 0, nxt(svg), L, S, (m[1], m[0], m[3], m[2]), track_h)
@@ -369,12 +401,12 @@ def slider_svg():
     W, H, r = 40, 6, 3
     m = (3, 3, 3, 3)
     svg.frame('groove-', 0, nxt(svg), W, H, m, [
-        RR(0, 0, W, H, r, vgrad(0, H, [(0, '#8d8d8d', 1), (1, '#b9b9b9', 1)])),
-        RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, [(0, '#c8c8c8', 1), (1, '#efefef', 1)])),
+        RR(0, 0, W, H, r, vgrad(0, H, [(0, D('#8d8d8d', '#060607'), 1), (1, D('#b9b9b9', '#34363a'), 1)])),
+        RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, [(0, D('#c8c8c8', '#111214'), 1), (1, D('#efefef', '#202225'), 1)])),
     ])
     svg.frame('groove-highlight-', 0, nxt(svg), W, H, m, [
         RR(0, 0, W, H, r, P.BLUE_RIM),
-        RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, [(0, '#5c9ff0', 1), (1, '#a9dcff', 1)])),
+        RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, [(0, D('#5c9ff0', '#2459b4'), 1), (1, D('#a9dcff', '#4a8ae0'), 1)])),
     ])
     return svg
 
@@ -392,12 +424,13 @@ def bar_meter_svg(vertical=False):
     W, H = (T, L) if vertical else (L, T + 1)
     m = (6, 6, 6, 6)
     if vertical:
-        inactive = [RR(0, 0, T, L, r, hgrad(0, T, [(0, '#a9a9a9', 1), (1, '#c9c9c9', 1)])),
-                    RR(1, 1, T - 1, L - 1, r - 1, hgrad(1, T - 1, [(0, '#dcdcdc', 1), (1, '#fafafa', 1)]))]
+        inactive = [RR(0, 0, T, L, r, hgrad(0, T, [(0, D('#a9a9a9', '#060607'), 1), (1, D('#c9c9c9', '#33353a'), 1)])),
+                    RR(1, 1, T - 1, L - 1, r - 1, hgrad(1, T - 1, [(0, D('#dcdcdc', '#121315'), 1), (1, D('#fafafa', '#212326'), 1)]))]
         active = G.blue(0, 0, T, L, r, axis='h', drop=0)
     else:
-        inactive = [RR(0, 0, L, T, r, vgrad(0, T, [(0, '#a9a9a9', 1), (1, '#c9c9c9', 1)])),
-                    RR(1, 1, L - 1, T - 1, r - 1, vgrad(1, T - 1, [(0, '#dcdcdc', 1), (0.5, '#f0f0f0', 1), (1, '#fafafa', 1)]))]
+        inactive = [RR(0, 0, L, T, r, vgrad(0, T, [(0, D('#a9a9a9', '#060607'), 1), (1, D('#c9c9c9', '#33353a'), 1)])),
+                    RR(1, 1, L - 1, T - 1, r - 1, vgrad(1, T - 1, [(0, D('#dcdcdc', '#121315'), 1), (0.5, D('#f0f0f0', '#1a1b1e'), 1),
+                                                                   (1, D('#fafafa', '#212326'), 1)]))]
         active = G.blue(0, 0, L, T, r, axis='v', drop=0)
     svg.frame('bar-inactive-', 0, 0, W, H, m, inactive)
     svg.frame('bar-active-', 0, nxt(svg), W, H, m, active)
@@ -416,7 +449,7 @@ def menubaritem_svg():
     m = (3, 3, 3, 3)
     hints = {'top-margin': 2, 'bottom-margin': 2, 'left-margin': 8, 'right-margin': 8}
     svg.frame('normal-', 0, 0, W, H, m, [RR(0, 0, W, H, 0, '#ffffff', 0.0)], hints=hints)
-    svg.frame('hover-', 0, nxt(svg), W, H, m, [RR(0, 0, W, H, 0, '#000000', 0.07)], hints=hints)
+    svg.frame('hover-', 0, nxt(svg), W, H, m, [RR(0, 0, W, H, 0, D('#000000', '#ffffff'), D(0.07, 0.08))], hints=hints)
     svg.frame('pressed-', 0, nxt(svg), W, H, m, selection_layers(W, H, 0), hints=hints)
     return svg
 
@@ -430,7 +463,7 @@ def tabbar_svg():
     # north-active-tab: menu bar (global menu / menu extras) -> Aqua blue highlight
     svg.frame('north-active-tab-', 0, 0, W, H, m, sel, hints=hints)
     # dock / generic: soft white glow pill
-    glow = [RR(1, 1, W - 1, H - 1, 6, '#ffffff', 0.45), RING(1, 1, W - 1, H - 1, 6, 1, '#ffffff', 0.6)]
+    glow = [RR(1, 1, W - 1, H - 1, 6, '#ffffff', D(0.45, 0.12)), RING(1, 1, W - 1, H - 1, 6, 1, '#ffffff', D(0.6, 0.22))]
     for pre in ('south-active-tab-', 'east-active-tab-', 'west-active-tab-', 'active-tab-'):
         svg.frame(pre, 0, nxt(svg), W, H, (7, 7, 7, 7), glow, hints=hints)
     return svg
@@ -444,10 +477,11 @@ def plasmoidheading_svg():
     svg = SVG(CS)
     W, H = 40, 32
     m = (2, 2, 2, 2)
-    header = [RR(0, 0, W, H, 0, vgrad(0, H, [(0, '#f6f6f6', 1), (1, '#e3e3e3', 1)])),
-              Layer(rrect_poly(0, H - 1, W, H, 0), '#b9b9b9')]
-    footer = [RR(0, 0, W, H, 0, vgrad(0, H, [(0, '#e9e9e9', 1), (1, '#f6f6f6', 1)])),
-              Layer(rrect_poly(0, 0, W, 1, 0), '#c4c4c4')]
+    header = [RR(0, 0, W, H, 0, vgrad(0, H, D([(0, '#f6f6f6', 1), (1, '#e3e3e3', 1)],
+                                              [(0, '#36393e', 1), (0.5, '#2d2f33', 1), (0.5, '#26282b', 1), (1, '#24262a', 1)]))),
+              Layer(rrect_poly(0, H - 1, W, H, 0), D('#b9b9b9', '#09090a'))]
+    footer = [RR(0, 0, W, H, 0, vgrad(0, H, [(0, D('#e9e9e9', '#1f2124'), 1), (1, D('#f6f6f6', '#25272a'), 1)])),
+              Layer(rrect_poly(0, 0, W, 1, 0), D('#c4c4c4', '#09090a'))]
     svg.frame('header-', 0, 0, W, H, m, header)
     svg.frame('footer-', 0, nxt(svg), W, H, m, footer)
     svg.hint('hint-stretch-borders', 0, nxt(svg), 2, 2)
@@ -469,15 +503,15 @@ def switch_svg():
     r = BH / 2
     hm = (9, 9, 9, 9)
     svg.frame('inactive-', 0, 0, BW, BH, hm, [
-        RR(0, 0, BW, BH, r, vgrad(0, BH, [(0, '#8d8d8d', 1), (1, '#b3b3b3', 1)])),
-        RR(1, 1, BW - 1, BH - 1, r - 1, vgrad(1, BH - 1, [(0, '#d2d2d2', 1), (1, '#f6f6f6', 1)])),
+        RR(0, 0, BW, BH, r, vgrad(0, BH, [(0, D('#8d8d8d', '#060607'), 1), (1, D('#b3b3b3', '#34363a'), 1)])),
+        RR(1, 1, BW - 1, BH - 1, r - 1, vgrad(1, BH - 1, [(0, D('#d2d2d2', '#131416'), 1), (1, D('#f6f6f6', '#222427'), 1)])),
     ])
     svg.frame('active-', 0, nxt(svg), BW, BH, hm, G.blue(0, 0, BW, BH, r, drop=0))
     svg.hint('hint-bar-size', 0, nxt(svg), BW, BH)
     y = nxt(svg)
     K = BH
     knob = [Layer(ellipse_poly(K / 2, K / 2 + 0.5, K / 2, K / 2), '#000000', 0.25),
-            Layer(ellipse_poly(K / 2, K / 2, K / 2 - 0.5, K / 2 - 0.5), '#8a8a8a'),
+            Layer(ellipse_poly(K / 2, K / 2, K / 2 - 0.5, K / 2 - 0.5), P.WHITE_RIM),
             Layer(ellipse_poly(K / 2, K / 2, K / 2 - 1.5, K / 2 - 1.5), Linear(0, 0, 0, K, P.WHITE_GEL)),
             Layer(ellipse_poly(K / 2, K / 2 - K * 0.2, K * 0.3, K * 0.2), Linear(0, 0, 0, K / 2, P.GLOSS), 0.8)]
     svg.element('handle', 0, y, K, K, knob)
@@ -498,7 +532,7 @@ def radiobutton_svg():
     S = 16
     c = S / 2
     svg.element('normal', 0, 0, S, S, [
-        Layer(ellipse_poly(c, c, c - 0.5, c - 0.5), vgrad(0, S, [(0, '#8a8a8a', 1), (1, '#6e6e6e', 1)])),
+        Layer(ellipse_poly(c, c, c - 0.5, c - 0.5), vgrad(0, S, [(0, D('#8a8a8a', P.WHITE_RIM_TOP), 1), (1, D('#6e6e6e', P.WHITE_RIM_BOTTOM), 1)])),
         Layer(ellipse_poly(c, c, c - 1.5, c - 1.5), Linear(0, 1, 0, S - 1, P.WHITE_GEL)),
         Layer(ellipse_poly(c, c - 2.5, c * 0.6, c * 0.4), Linear(0, 1, 0, c, P.GLOSS), 0.7),
     ])
@@ -507,7 +541,7 @@ def radiobutton_svg():
         Layer(ellipse_poly(c, c, c - 1.5, c - 1.5), Linear(0, 1, 0, S - 1, P.BLUE_GEL)),
         Layer(ellipse_poly(c, c - 2.5, c * 0.6, c * 0.4), Linear(0, 1, 0, c, P.GLOSS), 0.7),
     ])
-    svg.element('symbol', 2 * (S + 4), 0, S, S, [Layer(ellipse_poly(c, c, 2.6, 2.6), '#1b2a44', 0.9)])
+    svg.element('symbol', 2 * (S + 4), 0, S, S, [Layer(ellipse_poly(c, c, 2.6, 2.6), D('#1b2a44', '#ffffff'), D(0.9, 0.95))])
     svg.element('focus', 3 * (S + 4), 0, S, S, [Layer(ellipse_poly(c, c, c, c), P.FOCUS_RING, 0.7, hole=ellipse_poly(c, c, c - 1.6, c - 1.6))])
     svg.element('hover', 4 * (S + 4), 0, S, S, [Layer(ellipse_poly(c, c, c, c), P.HOVER, 0.5, hole=ellipse_poly(c, c, c - 1.2, c - 1.2))])
     svg.element('shadow', 5 * (S + 4), 0, S, S, [Layer(ellipse_poly(c, c + 0.8, c - 0.3, c - 0.3), '#000000', 0.12)])
@@ -524,7 +558,7 @@ def write_metadata(root):
         "KPlugin": {
             "Authors": [{"Name": P.AUTHOR}],
             "Category": "",
-            "Description": "Aqua, the lickable way: Snow Leopard to Mavericks for Plasma",
+            "Description": P.DESCRIPTION + " for Plasma",
             "EnabledByDefault": True,
             "Id": P.THEME_ID,
             "License": "GPL-3.0-or-later",
@@ -538,14 +572,20 @@ def write_metadata(root):
     with open(os.path.join(root, 'metadata.json'), 'w') as fh:
         json.dump(meta, fh, indent=4)
     with open(os.path.join(root, 'plasmarc'), 'w') as fh:
-        fh.write('[ContrastEffect]\nenabled=true\ncontrast=0.9\nintensity=1.1\nsaturation=1.6\n\n'
-                 '[BlurBehindEffect]\nenabled=true\n\n[AdaptiveTransparency]\nenabled=true\n')
+        # DarkLiger: the blurred backdrop is darkened (intensity < 1) so it reads as smoked glass
+        fh.write('[ContrastEffect]\nenabled=true\ncontrast=%s\nintensity=%s\nsaturation=%s\n\n'
+                 '[BlurBehindEffect]\nenabled=true\n\n[AdaptiveTransparency]\nenabled=true\n'
+                 % D(('0.9', '1.1', '1.6'), ('0.45', '0.55', '1.4')))
 
 
 def build(out):
     root = os.path.join(out, 'plasma', 'desktoptheme', P.THEME_ID)
 
     def save(rel, svg):
+        # FrameSvg tiles border pieces unless told otherwise; a tiled border repeats its
+        # slice of a gradient (doubled caps, saw-toothed sides) while the centre stretches
+        if 'id="hint-stretch-borders"' not in ''.join(svg.body):
+            svg.hint('hint-stretch-borders', 0, svg.maxy + 12, 2, 2)
         svg.save(os.path.join(root, rel + '.svgz'))
 
     # base (compositing, no blur assumed)

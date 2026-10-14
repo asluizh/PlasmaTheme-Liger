@@ -1,5 +1,5 @@
 #!/bin/bash
-# Render Liger in an isolated, headless Plasma session and take screenshots.
+# Render Liger (or DarkLiger) in an isolated, headless Plasma session and take screenshots.
 # Nothing touches your real desktop: config + data dirs are private, KWin
 # runs with the virtual backend on its own D-Bus session.
 #
@@ -8,6 +8,7 @@
 #        APPS    shell command(s) to start apps (default: widget gallery)
 #        W,H     screen size (default 1440x900)
 #        WAIT    seconds to wait for plasmashell (default 14)
+#        THEME   Liger (default) or DarkLiger
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$HERE/previews}"
@@ -17,28 +18,30 @@ RUNDIR="${RUNDIR:-$(mktemp -d /tmp/liger-XXXXXX)}"
 mkdir -p "$RUNDIR"; chmod 700 "$RUNDIR"
 W="${W:-1440}"; H="${H:-900}"; WAIT="${WAIT:-14}"
 APPS="${APPS:-python3 $HERE/tools/gallery.py}"
+T="${THEME:-Liger}"
+LAF="org.kde.${T,,}.desktop"
 
 python3 "$HERE/build.py" >/dev/null
 
 rm -rf "$WORK"
 mkdir -p "$WORK/config" "$WORK/data/plasma/desktoptheme" "$WORK/data/plasma/look-and-feel" \
          "$WORK/data/aurorae/themes" "$WORK/data/color-schemes"
-ln -s "$HERE/build/plasma/desktoptheme/Liger" "$WORK/data/plasma/desktoptheme/Liger"
-ln -s "$HERE/build/plasma/look-and-feel/org.kde.liger.desktop" "$WORK/data/plasma/look-and-feel/org.kde.liger.desktop"
-ln -s "$HERE/build/aurorae/themes/Liger" "$WORK/data/aurorae/themes/Liger"
-ln -s "$HERE/build/color-schemes/Liger.colors" "$WORK/data/color-schemes/Liger.colors"
+ln -s "$HERE/build/plasma/desktoptheme/$T" "$WORK/data/plasma/desktoptheme/$T"
+ln -s "$HERE/build/plasma/look-and-feel/$LAF" "$WORK/data/plasma/look-and-feel/$LAF"
+ln -s "$HERE/build/aurorae/themes/$T" "$WORK/data/aurorae/themes/$T"
+ln -s "$HERE/build/color-schemes/$T.colors" "$WORK/data/color-schemes/$T.colors"
 
 C="$WORK/config"
 {
-  cat "$HERE/build/color-schemes/Liger.colors"
-  printf '\n[KDE]\nLookAndFeelPackage=org.kde.liger.desktop\nwidgetStyle=kvantum\nAnimationDurationFactor=0\n'
+  cat "$HERE/build/color-schemes/$T.colors"
+  printf '\n[KDE]\nLookAndFeelPackage=%s\nwidgetStyle=kvantum\nAnimationDurationFactor=0\n' "$LAF"
   printf '\n[Icons]\nTheme=breeze\n'
 } > "$C/kdeglobals"
-printf '[Theme]\nname=Liger\n' > "$C/plasmarc"
+printf '[Theme]\nname=%s\n' "$T" > "$C/plasmarc"
 mkdir -p "$C/Kvantum"
-ln -s "$HERE/build/kvantum/Liger" "$C/Kvantum/Liger"
-printf '[General]\ntheme=Liger\n' > "$C/Kvantum/kvantum.kvconfig"
-printf '[org.kde.kdecoration2]\nlibrary=org.kde.kwin.aurorae.v2\ntheme=__aurorae__svg__Liger\nButtonsOnLeft=XIA\nButtonsOnRight=SF\n\n[Plugins]\nblurEnabled=true\n' > "$C/kwinrc"
+ln -s "$HERE/build/kvantum/$T" "$C/Kvantum/$T"
+printf '[General]\ntheme=%s\n' "$T" > "$C/Kvantum/kvantum.kvconfig"
+printf '[org.kde.kdecoration2]\nlibrary=org.kde.kwin.aurorae.v2\ntheme=__aurorae__svg__%s\nButtonsOnLeft=XIA\nButtonsOnRight=SF\n\n[Plugins]\nblurEnabled=true\n' "$T" > "$C/kwinrc"
 printf '[General]\nShouldShow=false\nLastSeenVersion=9.9.9\n' > "$C/plasma-welcomerc"
 printf '[General]\nloginMode=emptySession\n' > "$C/ksmserverrc"
 

@@ -10,7 +10,7 @@ import os
 
 import palette as P
 
-LAF_ID = 'org.kde.liger.desktop'
+LAF_ID = P.LAF_ID
 
 DEFAULTS = """[kdeglobals][General]
 ColorScheme={id}
@@ -31,7 +31,7 @@ ButtonsOnRight=SF
 cursorTheme=breeze_cursors
 """
 
-LAYOUT_JS = r"""// Liger: Aqua desktop layout (menu bar + 2D dock)
+LAYOUT_JS = r"""// Liger / DarkLiger: Aqua desktop layout (menu bar + 2D dock)
 var menubar = new Panel;
 menubar.location = "top";
 menubar.height = Math.max(24, Math.round(gridUnit * 1.35));
@@ -76,7 +76,7 @@ def build(out):
         "KPlugin": {
             "Authors": [{"Name": P.AUTHOR}],
             "Category": "",
-            "Description": "Aqua, the lickable way: Snow Leopard to Mavericks",
+            "Description": P.DESCRIPTION,
             "Id": LAF_ID,
             "License": "GPL-3.0-or-later",
             "Name": P.THEME_NAME,

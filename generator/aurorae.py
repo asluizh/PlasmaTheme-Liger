@@ -61,7 +61,7 @@ def _decoration_layers(W, H, pad, active, shadow=True, radius=RADIUS):
     # top specular line: a crescent following the rounded corners (the title's top edge
     # minus the same edge shifted down), so it never pokes outside the corner
     L.append(Layer(_crescent(x0 + 1, x1 - 1, y0 + 1, radius - 1, 1.2), '#ffffff',
-                   P.TITLE_ACTIVE_HILITE[1] if active else 0.9))
+                   P.TITLE_ACTIVE_HILITE[1] if active else P.D(0.9, 0.10)))
     # separator under the title bar
     L.append(Layer(rrect_poly(x0 + 1, y0 + TITLE_H - 1, x1 - 1, y0 + TITLE_H, 0), sep))
     return L
@@ -74,7 +74,7 @@ def _maximized_layers(W, active):
     return H, [
         RR(0, 0, W, H, 0, P.WINDOW_BG),
         RR(0, 0, W, TITLE_H, 0, vgrad(0, TITLE_H, title)),
-        RR(0, 0, W, 1, 0, '#ffffff', 0.8),
+        RR(0, 0, W, 1, 0, '#ffffff', P.D(0.8, P.TITLE_ACTIVE_HILITE[1] if active else 0.10)),
         RR(0, TITLE_H - 1, W, TITLE_H, 0, sep),
     ]
 
@@ -132,8 +132,8 @@ def well(cx, cy, rad, width=1.1):
     """Inset socket the gem sits in: dark rim at the top, light reflection at the bottom."""
     R = rad + width
     return [Layer(ellipse_poly(cx, cy, R, R), Linear(0, cy - R, 0, cy + R,
-                                                      [(0, '#000000', 0.42), (0.45, '#000000', 0.16),
-                                                       (0.7, '#ffffff', 0.25), (1, '#ffffff', 0.85)]),
+                                                      [(0, '#000000', P.D(0.42, 0.75)), (0.45, '#000000', P.D(0.16, 0.35)),
+                                                       (0.7, '#ffffff', P.D(0.25, 0.06)), (1, '#ffffff', P.D(0.85, 0.28))]),
                   hole=ellipse_poly(cx, cy, rad, rad))]
 
 
@@ -184,8 +184,8 @@ RC = """[General]
 ActiveTextColor={at}
 InactiveTextColor={it}
 UseTextShadow=true
-ActiveTextShadowColor=255,255,255,200
-InactiveTextShadowColor=255,255,255,160
+ActiveTextShadowColor={sh},200
+InactiveTextShadowColor={sh},160
 TextShadowOffsetX=0
 TextShadowOffsetY=1
 TitleAlignment=Center
@@ -235,10 +235,10 @@ def build(out):
         button_svg(kind).save(os.path.join(root, kind + '.svg'))
     with open(os.path.join(root, P.THEME_ID + 'rc'), 'w') as fh:
         fh.write(RC.format(at='%d,%d,%d' % hexrgb(P.TITLE_TEXT), it='%d,%d,%d' % hexrgb(P.TITLE_TEXT_INACTIVE),
-                           b=BTN, pl=PAD[0], pt=PAD[1], pr=PAD[2], pb=PAD[3]))
+                           sh=P.D('255,255,255', '0,0,0'), b=BTN, pl=PAD[0], pt=PAD[1], pr=PAD[2], pb=PAD[3]))
     with open(os.path.join(root, 'metadata.desktop'), 'w') as fh:
-        fh.write('[Desktop Entry]\nName=%s\nComment=Aqua (Snow Leopard..Mavericks) window decoration\n'
+        fh.write('[Desktop Entry]\nName=%s\nComment=%s window decoration\n'
                  'X-KDE-PluginInfo-Author=%s\nX-KDE-PluginInfo-Name=%s\nX-KDE-PluginInfo-Version=%s\n'
                  'X-KDE-PluginInfo-License=GPL-3.0-or-later\nX-KDE-PluginInfo-EnabledByDefault=true\n'
-                 'X-Plasma-API=declarativeappletscript\n' % (P.THEME_NAME, P.AUTHOR, P.THEME_ID, P.VERSION))
+                 'X-Plasma-API=declarativeappletscript\n' % (P.THEME_NAME, P.DESCRIPTION, P.AUTHOR, P.THEME_ID, P.VERSION))
     return root

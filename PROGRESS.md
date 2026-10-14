@@ -1,4 +1,4 @@
-# Liger — progress log
+# Liger / DarkLiger — progress log
 
 Aqua (Mac OS X 10.6 Snow Leopard → 10.9 Mavericks) for KDE Plasma 6, aiming for
 Jobs' "lickable" gel look. Reference for colours/proportions:
@@ -10,7 +10,9 @@ everything is generated procedurally.
 ## How the project works
 
 ```
-palette.py      every colour / gel recipe (single source of truth)
+palette.py      every colour / gel recipe (single source of truth); LIGER_VARIANT=light|dark
+                selects Liger or DarkLiger (dark block at the end overrides, D(light, dark)
+                picks one-off literals inside the generators)
 svgkit.py       SVG toolkit: rounded-rect polygons clipped into 9-slice pieces,
                 gradients, size hints, raster (PIL) soft shadows embedded as PNG
 gel.py          reusable Aqua gel recipes: gel(), blue(), white(), glow_ring()
@@ -19,9 +21,11 @@ colorscheme.py  colour scheme -> build/color-schemes/Liger.colors (+ theme 'colo
 aurorae.py      window deco   -> build/aurorae/themes/Liger
 kvantum.py      app widgets   -> build/kvantum/Liger (Liger.svg + Liger.kvconfig)
 lookandfeel.py  global theme  -> build/plasma/look-and-feel/org.kde.liger.desktop
-build.py        runs all of the above (wipes ./build first)
-install.sh      copies to ~/.local/share  (--apply, --layout, --remove)
+build.py        wipes ./build, then runs all of the above once per variant (subprocess each:
+                modules read the palette at import time); --variant X builds one
+install.sh      copies both themes to ~/.local/share  (--apply, --layout, --remove, --dark)
 tools/testsession.sh  headless nested Plasma session -> previews/desktop.png, launcher.png
+                      (THEME=DarkLiger for the dark variant)
 tools/gallery.py      PySide6 widget gallery (--popup: real QMenu popup, needs QT_QPA_PLATFORM=xcb)
 ```
 
@@ -116,6 +120,36 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
   v1 QML draws plain Text; the UseTextShadow keys stay in Ligerrc in case it returns.
 - Won't fix: vertical (row) table headers reuse the horizontal header art transposed
   (Kvantum CE_HeaderSection rotates it; there is no separate element).
+
+### Done (session 3, 2026-10-14) — DarkLiger 1.1.0
+- [x] Variant system: `LIGER_VARIANT` env → `palette.DARK`, ids `DarkLiger` /
+  `org.kde.darkliger.desktop`; build.py builds both; Liger output verified byte-identical
+  to 1.0.1 apart from comments (diffed `build/` before/after)
+- [x] DarkLiger look (after QuickTime X, "OS X by way of Vista"): smoked glass instead of
+  brushed metal; every gel breaks hard at a reflection line (47–50%) instead of melting;
+  faint sharp `GLOSS` band; `GLASS_EDGE` = 1px light inner rim on gels (gel.py), popups,
+  tooltips, menus, group boxes so dark surfaces separate from dark backdrops
+- [x] Modern dark conventions: window #26282b, views #1c1d20, text #e6e7e9, recessed dark
+  fields/grooves; bright colour only on small accents (Aqua blue kept, a touch deeper:
+  #2f6bd0 selection, dark-blue glass default button/thumb/progress); traffic lights keep
+  their colours, graphite inactive gems are dark glass; dark tooltips (no SL yellow)
+- [x] Translucent smoked-glass menu bar, dock (hard sheen line), popups and Kvantum menus
+  (alpha 0.93 + popup_blurring); plasmarc ContrastEffect darkens the blurred backdrop
+  (contrast 0.45, intensity 0.55, saturation 1.4); opaque/ and solid/ fallbacks as Liger
+- [x] Both: Kvantum `button-default-indicator` (+ `flat-`) now an empty element — Kvantum
+  fell back to its built-in corner triangle, visible as a wedge on default buttons
+- [x] install.sh: installs both, `--dark`, rejects unknown options, tolerates a missing kwinrc
+- [x] Both: every Plasma SVG now carries `hint-stretch-borders`. FrameSvg *tiles* border
+  pieces by default while the centre stretches, so a gradient frame showed its edge slice
+  repeated (doubled gradients at the dock caps, saw-toothed sides on vertical panels).
+  KSvg reads this hint (like hint-tile-center) unprefixed, once per SVG.
+- [x] Both: `east-`/`west-` dock frames are the dock layers transposed (`transposed()`), so
+  vertical docks have their gradient across the thickness, lit side left like the scroller
+  thumb; their margins hints are swapped to match. Checked in the test session with the
+  dock scripted to 84px thick and moved to the left edge (qdbus evaluateScript as APPS).
+- [x] previews/dark-desktop.png, dark-menu.png, dark-launcher.png
+- Not yet checked on a real session: blur strength/contrast of the smoked glass (the
+  virtual test backend does not render blur), notification popups, system tray popups.
 
 ### Aurorae v2 gotcha (keep!)
 - A loaded theme is shared in a global list and kept while ANY window uses it; a KWin
