@@ -117,6 +117,13 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
 - Won't fix: vertical (row) table headers reuse the horizontal header art transposed
   (Kvantum CE_HeaderSection rotates it; there is no separate element).
 
+### Aurorae v2 gotcha (keep!)
+- A loaded theme is shared in a global list and kept while ANY window uses it; a KWin
+  reconfigure does not re-read Ligerrc/SVGs. To see edits without re-login, switch the
+  decoration away and back (install.sh `reload_decoration` does it). Don't use
+  `kwriteconfig6 --delete` to restore inherited keys: it writes `key[$d]`, which masks the
+  global-theme default. Use `qdbus6 || qdbus` (Fedora ships only `qdbus`).
+
 ### Kvantum gotchas learned (keep!)
 - Selected menu items use state `toggled` (Kvantum getState: Selected → toggled).
 - Menu separator element = `<MenuItem indicator.element>-separator` (here `marrow-separator`).

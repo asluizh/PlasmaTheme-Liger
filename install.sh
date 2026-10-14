@@ -33,11 +33,28 @@ if [ -d "$B/kvantum/$KV" ]; then
 fi
 echo "Liger installed into $D"
 
-# make running sessions pick up the new files: Plasma keeps a per-theme SVG cache and
-# KWin only reloads the window decoration when asked to
+# make running sessions pick up the new files: Plasma keeps a per-theme SVG cache, and
+# Aurorae v2 keeps a loaded theme in memory while any window uses it (a plain KWin
+# reconfigure does not re-read it), so briefly switch the decoration away and back.
 rm -f "${XDG_CACHE_HOME:-$HOME/.cache}/plasma_theme_$ID.kcache"
-if command -v qdbus6 >/dev/null; then qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
-elif command -v qdbus >/dev/null; then qdbus org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true; fi
+reload_decoration() {
+  local Q; Q=$(command -v qdbus6 || command -v qdbus) || return 0
+  local G=org.kde.kdecoration2 lib theme
+  # read only the user's own kwinrc (kreadconfig6 would also return cascaded defaults)
+  local F="${XDG_CONFIG_HOME:-$HOME/.config}/kwinrc"
+  lib=$(sed -n "/^\[$G\]/,/^\[/{s/^library=//p}" "$F" 2>/dev/null | head -1)
+  theme=$(sed -n "/^\[$G\]/,/^\[/{s/^theme=//p}" "$F" 2>/dev/null | head -1)
+  kwriteconfig6 --file kwinrc --group $G --key library org.kde.breeze
+  kwriteconfig6 --file kwinrc --group $G --key theme Breeze
+  "$Q" org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+  sleep 1
+  # restore exactly what was there (empty = inherited from the global theme defaults)
+  # (not kwriteconfig6 --delete: that writes "key[$d]", which also hides the inherited value)
+  sed -i "/^\[$G\]/,/^\[/{/^library=/d;/^theme=/d}" "$F"
+  [ -z "$lib" ] || kwriteconfig6 --file kwinrc --group $G --key library "$lib"
+  [ -z "$theme" ] || kwriteconfig6 --file kwinrc --group $G --key theme "$theme"
+  "$Q" org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+}
 
 select_kvantum() {
   # point Kvantum at Liger (the global theme sets widgetStyle=kvantum)
@@ -49,6 +66,8 @@ select_kvantum() {
   if grep -q '^theme=' "$K" 2>/dev/null; then sed -i "s/^theme=.*/theme=$KV/" "$K"
   else printf '[General]\ntheme=%s\n' "$KV" >> "$K"; fi
 }
+
+[ "${1:-}" = "--remove" ] || reload_decoration
 
 case "${1:-}" in
   --apply)  select_kvantum; plasma-apply-lookandfeel -a "$LAF" ;;
