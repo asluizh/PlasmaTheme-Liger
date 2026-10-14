@@ -109,7 +109,7 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
   closing line and soft shading, glyph; pressed = blue gel. The groove's end pieces
   repaint that surface around the well's rounded ends so button and track read as one piece.
 - [x] Title bar 23px; traffic-light circles 15px (gem r 6.4 + 1.1 well; 16 looked too big),
-  TitleEdgeTop=4, ButtonSpacing=3
+  TitleEdgeTop=4, ButtonSpacing=6
 - [x] `scrollbar_in_view=true`: the view frame now surrounds contents AND scrollbars
   (before, the frame only wrapped the contents, so the scrollbar had a line on one side only)
 - Not possible: engraved (text-shadow) title. Aurorae v2 has no text-shadow keys and the
