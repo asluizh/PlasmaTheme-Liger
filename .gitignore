@@ -1,0 +1,4 @@
+build/
+.testsession/
+__pycache__/
+*.pyc
