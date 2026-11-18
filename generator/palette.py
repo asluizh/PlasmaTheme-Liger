@@ -29,7 +29,7 @@ THEME_ID = 'Liger'
 LAF_ID = 'org.kde.liger.desktop'
 DESCRIPTION = 'Aqua, the lickable way: Snow Leopard to Mavericks'
 AUTHOR = 'Liger contributors'
-VERSION = '1.1.2'
+VERSION = '1.2.0'
 
 # --------------------------------------------------------------------------
 # base colours
@@ -100,13 +100,15 @@ MENUBAR = [(0.0, '#f3f3f3', 1), (0.55, '#e3e3e3', 1), (1.0, '#cbcbcb', 1)]
 MENUBAR_LINE = '#8a8a8a'
 
 # Dock (bottom panel, 2D "frosted" Mavericks side-dock look)
-DOCK_STYLE = 'frost'   # 'frost' (light, Mavericks) | 'smoke' (dark, Leopard/SL 2D)
+# 'smoke' = the real OS X 10.5-10.8 2D dock: see-through dark smoke with a light outline.
+# Plasma picks panel art by screen edge only, so this never touches the north- menu bar.
+DOCK_STYLE = 'smoke'   # 'smoke' (dark, Leopard..Mavericks 2D) | 'frost' (light, frosted)
 DOCK_FROST = [(0.0, '#f1f1f1', 0.86), (0.5, '#dfe3e9', 0.80), (1.0, '#cdd4de', 0.86)]
 DOCK_FROST_BORDER = ('#ffffff', 0.75)
 DOCK_FROST_OUTLINE = ('#000000', 0.22)
-DOCK_SMOKE = [(0.0, '#4a4a4a', 0.62), (1.0, '#262626', 0.70)]
-DOCK_SMOKE_BORDER = ('#ffffff', 0.35)
-DOCK_SMOKE_OUTLINE = ('#000000', 0.45)
+DOCK_SMOKE = [(0.0, '#3a3a3a', 0.50), (1.0, '#141414', 0.58)]
+DOCK_SMOKE_BORDER = ('#ffffff', 0.45)
+DOCK_SMOKE_OUTLINE = ('#000000', 0.30)
 
 # Popups / dialogs (menus, plasmoid popups, KRunner)
 POPUP = [(0.0, '#ffffff', 1), (1.0, '#f6f6f6', 1)]

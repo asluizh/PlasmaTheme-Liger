@@ -188,6 +188,15 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
   highlightSections), and the sort indicator is drawn only in the SE_HeaderArrow box. A small
   upstream patch (e.g. a `header-sorted-*` element used when sortIndicator != None) would do it.
 
+### Done (session 6, 2026-11-17) — 1.2.0: Liger smoke dock
+- [x] Liger `DOCK_STYLE='smoke'`: the real 10.5–10.8 2D dock (dark smoke ~50–58% opaque,
+  white 45% outline, faint sheen). Plasma picks panel art by screen edge only (Panel.qml
+  adjustPrefix: north/south/east/west; `floating` prefix only sizes floating margins;
+  nothing distinguishes full-width from fit-content), so `north-` menu bar is unaffected,
+  but a full-width *bottom* panel gets the dock look too.
+- Known: panels share one colour set (Window, dark text in Liger), so symbolic icons
+  (e.g. the trash applet) and any text in the dock are dark on dark smoke.
+
 ### Aurorae v2 gotcha (keep!)
 - A loaded theme is shared in a global list and kept while ANY window uses it; a KWin
   reconfigure does not re-read Ligerrc/SVGs. To see edits without re-login, switch the
@@ -208,8 +217,7 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
 ### Next (priority order)
 1. Real-desktop check (install.sh --apply) with blur: tune translucent/ alphas,
    menubar translucency, popup shadow strength, KWin blur + contrast via plasmarc.
-2. Dock polish: stronger frosted base when no blur; optional `smoke` style
-   (palette.DOCK_STYLE); check east/west docks; consider tasks indicator being
+2. Dock polish: Liger smoke dock vs dark symbolic icons/text (see session 6); check east/west docks; consider tasks indicator being
    too wide on big docks (corner width 20px each in tasks_svg).
 3. Remaining Plasma SVGs still falling back to Breeze: frame, tabbar (non-panel),
    arrows, checkmarks, pager, toolbar, line, actionbutton, calendar, busywidget,

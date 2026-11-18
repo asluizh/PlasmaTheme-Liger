@@ -79,7 +79,7 @@ def dock_layers(W, H, r, alpha_mul, style):
         RING(1, 1, W - 1, H - 1, r - 1, 1, border[0], border[1] * min(1, alpha_mul)),
         # glassy upper sheen (DarkLiger: a faint band that stops hard at the reflection line)
         Layer(rrect_poly(2, 2, W - 2, H * D(0.45, 0.5), (r - 2, r - 2, D(2, 0), D(2, 0))),
-              vgrad(2, H * D(0.45, 0.5), [(0, '#ffffff', D(0.35, 0.14) * min(1, alpha_mul)),
+              vgrad(2, H * D(0.45, 0.5), [(0, '#ffffff', (0.14 if style == 'smoke' else 0.35) * min(1, alpha_mul)),
                                           (1, '#ffffff', D(0.0, 0.03))])),
     ]
     return L
