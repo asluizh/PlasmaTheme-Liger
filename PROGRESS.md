@@ -171,6 +171,23 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
 - Gotcha: a FrameSvg element needs a non-empty center row/column; check with
   `zcat ... | grep -o 'id="[^"]*center"'` when a frame "doesn't show".
 
+### Done (session 5, 2026-11-17) — 1.1.2: tabs, dock markers
+- [x] Kvantum tabs = one Aqua segmented control: `joined_inactive_tabs=true` + `tab-separator-
+  {normal,toggled}[-inactive]` elements (1px rim-coloured divider in each tab's right frame
+  strip; with a separator element Kvantum joins the active tab too, so only the outer tabs
+  keep rounded ends). `embedded_tabs=true`: the pane's top edge runs through the tabs' middle.
+- [x] Dock/panel tasks: Plasma looks up `<state>-hover` before `hover` (TaskTools.js
+  taskPrefixHovered: `south-focus-hover`, `focus-hover`, `south-hover`, `hover`, ...;
+  launchers use `launcher-hover`). Every state now has a `-hover` frame = hover look + its
+  light, so the running light no longer vanishes on hover. `focus` (active window) = longer,
+  brighter light pooling on the shelf; `minimized` = dimmed light. DarkLiger hover = Vista
+  "underglow" (blue bloom from the bottom edge in a faint glass box). east/west frames are
+  the horizontal ones transposed/mirrored (`task_looks()`), except progress (fills left->right).
+- Won't fix without patching Kvantum: blue *sorted* header column. CE_HeaderSection only uses
+  getState() (normal/focused/pressed/toggled; toggled = selected column via
+  highlightSections), and the sort indicator is drawn only in the SE_HeaderArrow box. A small
+  upstream patch (e.g. a `header-sorted-*` element used when sortIndicator != None) would do it.
+
 ### Aurorae v2 gotcha (keep!)
 - A loaded theme is shared in a global list and kept while ANY window uses it; a KWin
   reconfigure does not re-read Ligerrc/SVGs. To see edits without re-login, switch the
@@ -211,6 +228,6 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
   Revisit if that turns out confusing.
 - Test session uses the virtual backend; blur is enabled in its kwinrc but not visibly
   rendered, so translucency judgements must be made on a real session.
-- Sorted header column is not drawn blue in the gallery (header-toggled not used for sort indicator?) — investigate.
+- Sorted header column is not blue: Kvantum has no state for it (see session 5).
 - v1.0.0: project renamed Ligre → Liger (ids: `Liger`, `org.kde.liger.desktop`); install.sh now
   reconfigures KWin and drops `plasma_theme_Liger.kcache` so changes show without re-login.

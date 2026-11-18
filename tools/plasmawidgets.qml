@@ -8,7 +8,7 @@ import org.kde.plasma.components as PC3
 
 Rectangle {
     id: root
-    width: 520; height: 470
+    width: 620; height: 720
     color: Kirigami.Theme.backgroundColor
     Kirigami.Theme.colorSet: Kirigami.Theme.Window
     Kirigami.Theme.inherit: false
@@ -66,6 +66,42 @@ Rectangle {
         PC3.ProgressBar { Layout.fillWidth: true; from: 0; to: 100; value: 65 }
         PC3.ProgressBar { Layout.fillWidth: true; from: 0; to: 100; value: 3 }
         PC3.ProgressBar { Layout.fillWidth: true; indeterminate: true }
+        PC3.Label { text: "Dock tasks: launcher, normal, minimized, active, attention, then hovered" }
+        Item {
+            Layout.preferredWidth: dock.width; Layout.preferredHeight: dock.height
+            KSvg.FrameSvgItem {
+                id: dock
+                imagePath: "widgets/panel-background"
+                prefix: "south"
+                width: taskRow.width + 20; height: 64
+                Row {
+                    id: taskRow
+                    x: 10; y: 8
+                    Repeater {
+                        model: ["", "normal", "minimized", "focus", "attention",
+                                "launcher-hover", "normal-hover", "minimized-hover", "focus-hover", "attention-hover"]
+                        KSvg.FrameSvgItem {
+                            imagePath: "widgets/tasks"
+                            prefix: modelData === "" ? "launcher" : ["south-" + modelData, modelData]
+                            width: 52; height: 52
+                            Kirigami.Icon { source: "system-file-manager"; anchors.centerIn: parent; anchors.verticalCenterOffset: -2; width: 36; height: 36 }
+                        }
+                    }
+                }
+            }
+            Column {
+                x: dock.width + 16; y: -40
+                Repeater {
+                    model: ["normal", "focus-hover", "focus"]
+                    KSvg.FrameSvgItem {
+                        imagePath: "widgets/tasks"
+                        prefix: ["west-" + modelData, modelData]
+                        width: 52; height: 46
+                        Kirigami.Icon { source: "system-file-manager"; anchors.centerIn: parent; width: 32; height: 32 }
+                    }
+                }
+            }
+        }
         PC3.Label { text: "Check / radio / buttons" }
         RowLayout {
             PC3.CheckBox { text: "Check"; checked: true }

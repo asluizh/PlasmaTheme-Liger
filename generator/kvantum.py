@@ -518,6 +518,17 @@ def tabs(kv: KV):
     for st, L in looks.items():
         kv.frame('tab-' + st, W, H, (f, f, f, f), L)
     kv.frame('tab-toggled-inactive', W, H, (f, f, f, f), graphite(*box, r))
+    # Joined tabs (joined_inactive_tabs + these elements): one segmented control, only
+    # the outer tabs keep their rounded ends; a 1px rim-coloured divider sits in the right
+    # frame strip (f px) of every tab but the last. '-toggled' = next to the selected tab.
+    def divider(name, col):
+        ox, oy = kv._slot(f, H)
+        kv.svg.frame(name + '-', ox, oy, f, H, (0, f, 0, f), [Layer(rrect_poly(f - 1, box[1] + 1, f, box[3] - 1, 0), col)],
+                     pieces=['top', 'center', 'bottom'], center=name)
+    for st, col in (('normal', P.WHITE_RIM), ('toggled', P.BLUE_RIM)):
+        divider('tab-separator-' + st, col)
+    for st in ('normal', 'toggled'):
+        divider('tab-separator-%s-inactive' % st, D('#7a7a7a', '#000000'))
     # tab pane: Aqua recessed box
     TW, TH, tf = 48, 48, 5
     pane = [RR(0, 0, TW, TH, 5, '#000000', D(0.2, 0.7)), RR(1, 1, TW - 1, TH - 1, 4, D('#e3e3e3', '#212326')),
@@ -573,9 +584,9 @@ alt_mnemonic=true
 left_tabs=false
 center_normal_tabs=true
 center_doc_tabs=false
-joined_inactive_tabs=false
+joined_inactive_tabs=true
 attach_active_tab=false
-embedded_tabs=false
+embedded_tabs=true
 no_active_tab_separator=false
 group_toolbar_buttons=false
 spread_progressbar=true

@@ -237,36 +237,76 @@ def _indicator(W, H, color_core, color_glow, y_from_bottom=2):
     ]
 
 
+def _faded(layers, k):
+    return [Layer(L.shape, L.paint, L.opacity * k, L.hole, L.cls) for L in layers]
+
+
+def _mirror_x(layers, W):
+    """Mirror layers left<->right on a W-wide template."""
+    def pts(poly):
+        return [(W - x, y) for x, y in reversed(poly)] if poly else poly
+
+    def paint(pt):
+        if isinstance(pt, Linear):
+            return Linear(W - pt.x1, pt.y1, W - pt.x2, pt.y2, pt.stops)
+        if isinstance(pt, Radial):
+            return Radial(W - pt.cx, pt.cy, pt.r, pt.stops, None if pt.fx is None else W - pt.fx, pt.fy, pt.sx, pt.sy)
+        return pt
+    return [Layer(pts(L.shape), paint(L.paint), L.opacity, pts(L.hole), L.cls) for L in layers]
+
+
+def task_looks(W, H):
+    """Horizontal-dock task frames (light along the bottom edge), keyed by Plasma prefix.
+
+    Plasma asks for '<state>-hover' first when an icon is hovered (then 'hover', then
+    '<state>'), so the hover frames carry the running light too and it never vanishes.
+    'focus' is the active window: a longer, brighter light that pools on the shelf.
+    """
+    run = _indicator(W, H, '#ffffff', '#6fb4ff')
+    cy = H - 2 - 1.5
+    act = [
+        Layer(rrect_poly(2, H * 0.45, W - 2, H, (0, 0, 6, 6)),
+              Radial(W / 2, H, W * 0.5, [(0, '#5aa2ff', D(0.32, 0.38)), (1, '#5aa2ff', 0)], sy=0.42)),
+        RR(12, cy - 4.5, W - 12, cy + 4, 4, '#3d8cff', D(0.22, 0.30)),
+    ] + _indicator(W, H, '#ffffff', '#3d8cff')
+    att = _indicator(W, H, '#fff6d0', '#ff9a1f')
+    if P.DARK:
+        # Vista "underglow": a blue bloom rising from the bottom edge inside a faint glass box
+        glow = [
+            Layer(rrect_poly(2, 1, W - 2, H - 1, 6), Radial(W / 2, H + 2, W * 0.62,
+                  [(0, '#9ccdff', 0.85), (0.45, '#3d7fe0', 0.40), (1, '#3d7fe0', 0)], sy=0.85)),
+            RR(2, 1, W - 2, H - 1, 6, '#ffffff', 0.04),
+            RING(2, 1, W - 2, H - 1, 6, 1, vgrad(1, H - 1, [(0, '#ffffff', 0.22), (0.5, '#ffffff', 0.06), (1, '#9ccaff', 0.30)])),
+        ]
+    else:
+        glow = [RR(4, 1, W - 4, H - 1, 8, Radial(W / 2, H * 0.55, W * 0.55,
+                                                 [(0, '#ffffff', 0.55), (1, '#ffffff', 0.08)], sy=0.8))]
+    states = {'normal': run, 'minimized': _faded(run, 0.55), 'focus': act, 'attention': att}
+    looks = {'hover': glow, 'launcher-hover': glow,
+             'progress': [RR(3, H - 9, W - 3, H - 2, 3.5, Linear(0, H - 9, 0, H - 2, P.BLUE_GEL), 0.95)]}
+    for st, L in states.items():
+        looks[st] = L
+        looks[st + '-hover'] = glow + L
+    return looks
+
+
 def tasks_svg():
     svg = SVG(CS)
+    hints = {'top-margin': 2, 'bottom-margin': 4, 'left-margin': 2, 'right-margin': 2}
     W, H = 56, 48
     m = (20, 6, 20, 8)
-    hints = {'top-margin': 2, 'bottom-margin': 4, 'left-margin': 2, 'right-margin': 2}
-    run = _indicator(W, H, '#ffffff', '#6fb4ff')
-    act = _indicator(W, H, '#ffffff', '#3d8cff')
-    hover_glow = [RR(4, 1, W - 4, H - 1, 8, Radial(W / 2, H * 0.55, W * 0.55,
-                                                     [(0, '#ffffff', D(0.55, 0.20)), (1, '#ffffff', D(0.08, 0.03))], sy=0.8))]
-    att = _indicator(W, H, '#fff6d0', '#ff9a1f')
-    progress = [RR(3, H - 9, W - 3, H - 2, 3.5, Linear(0, H - 9, 0, H - 2, P.BLUE_GEL), 0.95)]
-    for pre in ['', 'south-', 'north-']:
-        svg.frame(pre + 'normal-', 0, nxt(svg), W, H, m, run, hints=hints)
-        svg.frame(pre + 'minimized-', 0, nxt(svg), W, H, m, run, hints=hints)
-        svg.frame(pre + 'focus-', 0, nxt(svg), W, H, m, act, hints=hints)
-        svg.frame(pre + 'hover-', 0, nxt(svg), W, H, m, hover_glow, hints=hints)
-        svg.frame(pre + 'attention-', 0, nxt(svg), W, H, m, att, hints=hints)
-        svg.frame(pre + 'progress-', 0, nxt(svg), W, H, m, progress, hints=hints)
-    # vertical docks: indicator on the screen-side edge
-    for pre, side in (('west-', 'left'), ('east-', 'right')):
-        WW, HH = 48, 56
-        mm = (8, 20, 8, 20) if side == 'left' else (8, 20, 8, 20)
-        x = 2.5 if side == 'left' else WW - 2.5 - 3
-        ind = [RR(x - 2, 16, x + 5, HH - 16, 3, '#6fb4ff', 0.4),
-               RR(x, 18, x + 3, HH - 18, 1.5, '#ffffff', 1.0)]
-        for st in ('normal-', 'minimized-', 'focus-'):
-            svg.frame(pre + st, 0, nxt(svg), WW, HH, mm, ind, hints=hints)
-        svg.frame(pre + 'hover-', 0, nxt(svg), WW, HH, mm, [RR(1, 4, WW - 1, HH - 4, 8, '#ffffff', D(0.3, 0.12))], hints=hints)
-        svg.frame(pre + 'attention-', 0, nxt(svg), WW, HH, mm, [RR(x, 18, x + 3, HH - 18, 1.5, '#ff9a1f', 1.0)], hints=hints)
-        svg.frame(pre + 'progress-', 0, nxt(svg), WW, HH, mm, [RR(2, HH - 9, WW - 2, HH - 2, 3.5, Linear(0, HH - 9, 0, HH - 2, P.BLUE_GEL))], hints=hints)
+    for name, L in task_looks(W, H).items():
+        for pre in ('', 'south-', 'north-'):
+            svg.frame(pre + name + '-', 0, nxt(svg), W, H, m, L, hints=hints)
+    # vertical docks: the same frames transposed, light on the screen-side edge
+    vm = (m[1], m[0], m[3], m[2])
+    for name, L in task_looks(W, H).items():
+        east = transposed(L)
+        west = _mirror_x(east, H)
+        if name == 'progress':  # Plasma fills it left to right on every edge
+            east = west = [RR(2, W - 9, H - 2, W - 2, 3.5, Linear(0, W - 9, 0, W - 2, P.BLUE_GEL), 0.95)]
+        svg.frame('east-' + name + '-', 0, nxt(svg), H, W, vm, east, hints=hints)
+        svg.frame('west-' + name + '-', 0, nxt(svg), H, W, (vm[2], vm[1], vm[0], vm[3]), west, hints=hints)
     return svg
 
 
