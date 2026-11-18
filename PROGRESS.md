@@ -26,6 +26,9 @@ build.py        wipes ./build, then runs all of the above once per variant (subp
 install.sh      copies both themes to ~/.local/share  (--apply, --layout, --remove, --dark)
 tools/testsession.sh  headless nested Plasma session -> previews/desktop.png, launcher.png
                       (THEME=DarkLiger for the dark variant)
+tools/plasmawidgets.py  renders real PlasmaComponents3 controls (switches, sliders, the
+                      volume applet's meter, progress bars...) with the built Plasma Style,
+                      offscreen, in seconds -> build/widgets-<Theme>.png (--theme DarkLiger)
 tools/gallery.py      PySide6 widget gallery (--popup: real QMenu popup, needs QT_QPA_PLATFORM=xcb)
 ```
 
@@ -150,6 +153,23 @@ Menu check: `APPS="env QT_QPA_PLATFORM=xcb python3 $PWD/tools/gallery.py --popup
 - [x] previews/dark-desktop.png, dark-menu.png, dark-launcher.png
 - Not yet checked on a real session: blur strength/contrast of the smoked glass (the
   virtual test backend does not render blur), notification popups, system tray popups.
+
+### Done (session 4, 2026-11-17) — 1.1.1: missing Plasma widgets
+- [x] `widgets/switch` (the pill toggles in tray popups): the 36x18 track used 9px top AND
+  bottom borders, so there was no left/center/right row and FrameSvg drew no track, only
+  the knob. Now left/center/right only, like Breeze.
+- [x] `widgets/slider` groove + groove-highlight: same bug (6px template = 3+3 margins), so
+  every Plasma slider groove, including the volume bar, was invisible. Template is now 8px;
+  sliders render it at its 6px margins and the middle rows collapse.
+- [x] Volume peak meter: plasma-pa draws a 2nd `groove-highlight` with `status: Selected`.
+  The fill is a pre-compensated gel under a `ColorScheme-Background` veil (`under_veil()`):
+  same look normally; under Selected KSvg maps Background -> Highlight, so the meter shows
+  as deeper blue (Liger) / brighter blue (DarkLiger).
+- KSvg Selected mapping (measured): Text -> HighlightedText; Background, ViewBackground,
+  ButtonBackground -> Highlight; Highlight, ButtonFocus, Positive/Negative/Neutral unchanged.
+- [x] `bar_meter_vertical`: same bug (12px wide, 6+6 borders), margins now 5/6/5/6.
+- Gotcha: a FrameSvg element needs a non-empty center row/column; check with
+  `zcat ... | grep -o 'id="[^"]*center"'` when a frame "doesn't show".
 
 ### Aurorae v2 gotcha (keep!)
 - A loaded theme is shared in a global list and kept while ANY window uses it; a KWin

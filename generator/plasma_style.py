@@ -398,17 +398,40 @@ def slider_svg():
                            hole=ellipse_poly(K / 2, K / 2, K / 2 - 2, K / 2 - 2))])
         svg.element(orient + '-slider-shadow', 3 * (K + 4), y, K, K + 1, [Layer(ellipse_poly(K / 2, K / 2 + 1, K / 2, K / 2), '#000000', 0.08)])
     svg.hint('hint-handle-size', 0, nxt(svg), K, K + 1)
-    W, H, r = 40, 6, 3
+    # Sliders size the groove to its top+bottom margins (6px), so the 8px template's
+    # middle rows collapse; they must still exist, or FrameSvg has no left/center/right
+    # pieces and draws nothing at all.
+    W, H, r = 40, 8, 3
     m = (3, 3, 3, 3)
     svg.frame('groove-', 0, nxt(svg), W, H, m, [
         RR(0, 0, W, H, r, vgrad(0, H, [(0, D('#8d8d8d', '#060607'), 1), (1, D('#b9b9b9', '#34363a'), 1)])),
         RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, [(0, D('#c8c8c8', '#111214'), 1), (1, D('#efefef', '#202225'), 1)])),
     ])
+    # The volume applet draws a second groove-highlight with status Selected on top of
+    # the fill: the live audio level. KSvg recolours ColorScheme-Background to the
+    # selection colour under that status, so a Background-class veil over a
+    # pre-compensated gel looks like the plain fill normally and turns deeper blue
+    # (Liger) / glows brighter (DarkLiger) as the meter.
+    fill = [(0, D('#5c9ff0', '#2459b4'), 1), (1, D('#a9dcff', '#3d7cc9'), 1)]
+    veil = D(0.35, 0.32)
+    inner = rrect_poly(1, 1, W - 1, H - 1, r - 1)
     svg.frame('groove-highlight-', 0, nxt(svg), W, H, m, [
         RR(0, 0, W, H, r, P.BLUE_RIM),
-        RR(1, 1, W - 1, H - 1, r - 1, vgrad(1, H - 1, [(0, D('#5c9ff0', '#2459b4'), 1), (1, D('#a9dcff', '#4a8ae0'), 1)])),
+        Layer(inner, vgrad(1, H - 1, under_veil(fill, P.WINDOW_BG, veil))),
+        Layer(inner, 'currentColor', veil, cls='ColorScheme-Background'),
     ])
     return svg
+
+
+def under_veil(stops, veil_color, a):
+    """Stops that, seen through `veil_color` at opacity a, look like `stops` (clamped)."""
+    from svgkit import hexrgb
+    vc = hexrgb(veil_color)
+    out = []
+    for o, c, op in stops:
+        rgb = [min(255, max(0, round((ch - a * v) / (1 - a)))) for ch, v in zip(hexrgb(c), vc)]
+        out.append((o, '#%02x%02x%02x' % tuple(rgb), op))
+    return out
 
 
 # ==========================================================================
@@ -422,7 +445,8 @@ def bar_meter_svg(vertical=False):
     r = T / 2 - 0.5
     axis = 'h' if vertical else 'v'
     W, H = (T, L) if vertical else (L, T + 1)
-    m = (6, 6, 6, 6)
+    # leave a centre column/row: FrameSvg draws nothing for a frame without one
+    m = (5, 6, 5, 6) if vertical else (6, 6, 6, 6)
     if vertical:
         inactive = [RR(0, 0, T, L, r, hgrad(0, T, [(0, D('#a9a9a9', '#060607'), 1), (1, D('#c9c9c9', '#33353a'), 1)])),
                     RR(1, 1, T - 1, L - 1, r - 1, hgrad(1, T - 1, [(0, D('#dcdcdc', '#121315'), 1), (1, D('#fafafa', '#212326'), 1)]))]
@@ -501,7 +525,9 @@ def switch_svg():
     svg = SVG(CS)
     BW, BH = 36, 18
     r = BH / 2
-    hm = (9, 9, 9, 9)
+    # left/center/right only (like Breeze): with top/bottom borders filling the whole
+    # height there was no center row, so FrameSvg drew no track at all
+    hm = (9, 0, 9, 0)
     svg.frame('inactive-', 0, 0, BW, BH, hm, [
         RR(0, 0, BW, BH, r, vgrad(0, BH, [(0, D('#8d8d8d', '#060607'), 1), (1, D('#b3b3b3', '#34363a'), 1)])),
         RR(1, 1, BW - 1, BH - 1, r - 1, vgrad(1, BH - 1, [(0, D('#d2d2d2', '#131416'), 1), (1, D('#f6f6f6', '#222427'), 1)])),

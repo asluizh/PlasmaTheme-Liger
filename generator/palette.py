@@ -29,7 +29,7 @@ THEME_ID = 'Liger'
 LAF_ID = 'org.kde.liger.desktop'
 DESCRIPTION = 'Aqua, the lickable way: Snow Leopard to Mavericks'
 AUTHOR = 'Liger contributors'
-VERSION = '1.1.0'
+VERSION = '1.1.1'
 
 # --------------------------------------------------------------------------
 # base colours
